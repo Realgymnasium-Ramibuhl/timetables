@@ -12,7 +12,7 @@
       <!-- Required meta tags -->
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1">
-      <meta http-equiv="refresh" content="600">
+      <!-- kein meta-refresh: die iFrames werden im Hintergrund getauscht -->
       <style>
          body {
            background-color: #000;
@@ -53,25 +53,22 @@
             <iframe id="frame2" style="position: absolute; top:0; left: 1917px"  src="https://intranet.tam.ch/krr/public/timetable/daily-class-schedule?dayShort=tomorrow" frameborder="0" scrolling="no"></iframe>
          </div>
       </div>
+      <script src="frame-refresh.js"></script>
       <script>
-         //prettier loading of content
-         window.addEventListener("load", function () {
-           document.getElementById('screenContent').style.visibility = 'visible';
-         });
 
+        //prettier loading of content
+        window.addEventListener("load", function () {
+          document.getElementById('screenContent').style.visibility = 'visible';
+        });
 
-         //lz foyer2 fix cut
-         var frame1 = document.getElementById('frame1');
-
-         frame1.addEventListener("load", function() {
-           frame1.style.height = "1660px";
-         })
-         //lz foyer2 fix cut
-         var frame2 = document.getElementById('frame2');
-
-         frame2.addEventListener("load", function() {
-           frame2.style.height = "1660px";
-         })
+        // Panels im Hintergrund neu laden, ohne sichtbaren Reload
+        FrameRefresh.start({
+          frames: [
+              { id: 'frame1', height: '1660px' },
+              { id: 'frame2', height: '1660px' }
+          ],
+          interval: 600000
+        });
 
       </script>
    </body>

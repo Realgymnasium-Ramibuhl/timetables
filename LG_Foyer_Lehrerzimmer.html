@@ -12,7 +12,7 @@
       <!-- Required meta tags -->
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1">
-      <meta http-equiv="refresh" content="600">
+      <!-- kein meta-refresh: die iFrames werden im Hintergrund getauscht -->
       <style>
          body {
          background-color: #000;
@@ -72,29 +72,23 @@
             <iframe id="frame3" style="position: absolute; top:0; left: 2560px;" src="https://www.lgr.ch/infoscreen" frameborder="0" scrolling="no"></iframe>
          </div>
       </div>
+      <script src="frame-refresh.js"></script>
       <script>
-         //prettier loading of content
-         window.addEventListener("load", function () {
-           document.getElementById('screenContent').style.visibility = 'visible';
-         });
 
+        //prettier loading of content
+        window.addEventListener("load", function () {
+          document.getElementById('screenContent').style.visibility = 'visible';
+        });
 
-         var frame1 = document.getElementById('frame1');
-
-         frame1.addEventListener("load", function() {
-           frame1.style.height = "1659px";
-         })
-         var frame2 = document.getElementById('frame2');
-
-         frame2.addEventListener("load", function() {
-           frame2.style.height = "1659px";
-         })
-         //nw foyer3 fix u1 cut
-         var frame3 = document.getElementById('frame3');
-
-         // frame3.addEventListener("load", function() {
-         //   frame3.style.height = "1693px";
-         // })
+        // Panels im Hintergrund neu laden, ohne sichtbaren Reload
+        FrameRefresh.start({
+          frames: [
+              { id: 'frame1', height: '1659px' },
+              { id: 'frame2', height: '1659px' },
+              { id: 'frame3' }
+          ],
+          interval: 600000
+        });
 
       </script>
    </body>
