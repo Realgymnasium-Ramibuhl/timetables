@@ -1,0 +1,196 @@
+<!--
+   Demo-Variante von RG_Foyer.html
+
+   Gleiche Seite, gleiches frame-refresh.js — nur lädt jedes Panel jede Minute
+   statt alle 10 Minuten neu, versetzt um 20 Sekunden. Dadurch läuft etwa alle
+   20 Sekunden ein Tausch durch die drei Panels und man sieht, dass dabei kein
+   schwarzes Aufblitzen auftritt.
+
+   Die Einblendung unten links gehört NICHT zur Produktivseite. Sie beobachtet
+   den Tausch nur von aussen (MutationObserver) und greift nicht in die Logik
+   ein — was hier zu sehen ist, verhält sich exakt wie im Betrieb.
+    -->
+<!doctype html>
+<html lang="en">
+   <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <style>
+         body {
+         background-color: #000;
+         }
+         iframe {
+         width: 985px;
+         height: 1640px;
+         position: relative;
+
+         -webkit-transform: scale(1.3, 1.3);
+         -o-transform: scale(1.3, 1.3);
+         -ms-transform: scale(1.3, 1.3);
+         transform: scale(1.3, 1.3);
+
+         -moz-transform-origin: top left;
+         -webkit-transform-origin: top left;
+         -o-transform-origin: top left;
+         -ms-transform-origin: top left;
+         transform-origin: top left;
+         }
+
+         /* hide scrollbar but allow scrolling */
+         body {
+         -ms-overflow-style: none;
+         scrollbar-width: none;
+         overflow: hidden;
+         }
+         body::-webkit-scrollbar {
+         display: none;
+         }
+
+         /* ---- nur Demo ---- */
+         .panel-outline {
+           position: absolute;
+           top: 0;
+           width: 1280px;
+           height: 2158px;
+           border: 6px solid #35c46a;
+           box-sizing: border-box;
+           opacity: 0;
+           transition: opacity 900ms ease-out;
+           pointer-events: none;
+           z-index: 10;
+         }
+         .panel-outline.hit { opacity: 1; transition: opacity 60ms; }
+
+         #hud {
+           position: fixed;
+           left: 24px;
+           bottom: 24px;
+           z-index: 20;
+           background: rgba(0, 0, 0, 0.82);
+           border: 1px solid #333;
+           border-radius: 10px;
+           padding: 18px 22px;
+           font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+           font-size: 17px;
+           line-height: 1.55;
+           color: #ddd;
+           min-width: 430px;
+         }
+         #hud h1 {
+           margin: 0 0 10px;
+           font-size: 18px;
+           letter-spacing: 0.04em;
+           color: #35c46a;
+         }
+         #hud table { border-collapse: collapse; width: 100%; }
+         #hud td { padding: 3px 10px 3px 0; white-space: nowrap; }
+         #hud .num { color: #fff; }
+         #hud .state-idle { color: #777; }
+         #hud .state-load { color: #e0a33a; }
+         #hud .state-swap { color: #35c46a; }
+         #hud footer { margin-top: 10px; color: #777; font-size: 14px; }
+      </style>
+      <title>Foyer — Demo</title>
+   </head>
+   <body>
+      <div>
+         <div id="screenContent" style="visibility:hidden;">
+            <iframe id="frame1" style="position: absolute; top:0; left: 0"      src="https://intranet.tam.ch/krr/public/timetable/daily-class-schedule?dayShort=today" frameborder="0" scrolling="no"></iframe>
+            <iframe id="frame2" style="position: absolute; top:0; left: 1280px"  src="https://intranet.tam.ch/krr/public/timetable/daily-class-schedule?dayShort=tomorrow" frameborder="0" scrolling="no"></iframe>
+            <iframe id="frame3" style="position: absolute; top:0; left: 2560px" src="https://intranet.tam.ch/krr/public/timetable/daily-class-schedule?dayShort=dayAfterTomorrow" frameborder="0" scrolling="no"></iframe>
+
+            <div class="panel-outline" data-left="0"      style="left: 0"></div>
+            <div class="panel-outline" data-left="1280px" style="left: 1280px"></div>
+            <div class="panel-outline" data-left="2560px" style="left: 2560px"></div>
+         </div>
+      </div>
+
+      <div id="hud">
+        <h1>DEMO — Panels laden jede Minute neu</h1>
+        <table>
+          <tr><td>Panel 1 — heute</td>      <td id="s1" class="state-idle">wartet</td> <td>Tausche: <span id="c1" class="num">0</span></td> <td>nächster in <span id="n1" class="num">–</span></td></tr>
+          <tr><td>Panel 2 — morgen</td>     <td id="s2" class="state-idle">wartet</td> <td>Tausche: <span id="c2" class="num">0</span></td> <td>nächster in <span id="n2" class="num">–</span></td></tr>
+          <tr><td>Panel 3 — übermorgen</td> <td id="s3" class="state-idle">wartet</td> <td>Tausche: <span id="c3" class="num">0</span></td> <td>nächster in <span id="n3" class="num">–</span></td></tr>
+        </table>
+        <footer>Im Betrieb: alle 10 Minuten statt jede Minute. Sonst identisch.</footer>
+      </div>
+
+      <script src="frame-refresh.js"></script>
+      <script>
+
+        var INTERVAL = 60000;   // Demo: jede Minute
+        var STAGGER  = 20000;   // 20s Versatz -> rollende Welle über die Panels
+
+        //prettier loading of content
+        window.addEventListener("load", function () {
+          document.getElementById('screenContent').style.visibility = 'visible';
+        });
+
+        var T0 = Date.now();
+
+        FrameRefresh.start({
+          frames: [
+              { id: 'frame1', height: '1660px' },
+              { id: 'frame2', height: '1660px' },
+              { id: 'frame3', height: '1660px' }
+          ],
+          interval: INTERVAL,
+          stagger: STAGGER,
+          nightlyReloadHour: null   // Demo läuft ohne nächtlichen Reload
+        });
+
+        /* ---------------- ab hier nur Anzeige, keine Logik ---------------- */
+
+        var LEFTS = { 0: 1, 1280: 2, 2560: 3 };
+        var counts = { 1: 0, 2: 0, 3: 0 };
+
+        // left:0 wird vom Browser zu "0px" normalisiert -> numerisch vergleichen
+        function panelOf(el) {
+          return LEFTS[parseInt(el.style.left || '0', 10)];
+        }
+
+        function setState(i, text, cls) {
+          var el = document.getElementById('s' + i);
+          el.textContent = text;
+          el.className = cls;
+        }
+
+        function flash(i) {
+          var box = document.querySelectorAll('.panel-outline')[i - 1];
+          box.classList.add('hit');
+          setTimeout(function () { box.classList.remove('hit'); }, 120);
+        }
+
+        new MutationObserver(function (muts) {
+          muts.forEach(function (m) {
+            m.addedNodes.forEach(function (n) {
+              if (n.tagName !== 'IFRAME') return;
+              var i = panelOf(n);
+              if (i) setState(i, 'lädt im Hintergrund', 'state-load');
+            });
+            m.removedNodes.forEach(function (n) {
+              if (n.tagName !== 'IFRAME') return;
+              var i = panelOf(n);
+              if (!i) return;
+              counts[i]++;
+              document.getElementById('c' + i).textContent = counts[i];
+              setState(i, 'getauscht', 'state-swap');
+              flash(i);
+              setTimeout(function () { setState(i, 'wartet', 'state-idle'); }, 2500);
+            });
+          });
+        }).observe(document.getElementById('screenContent'), { childList: true });
+
+        // Countdown: die Auslösezeitpunkte stehen fest (T0 + i*STAGGER + k*INTERVAL)
+        setInterval(function () {
+          for (var i = 1; i <= 3; i++) {
+            var base = T0 + (i - 1) * STAGGER;
+            var k = Math.max(1, Math.ceil((Date.now() - base) / INTERVAL));
+            var secs = Math.round((base + k * INTERVAL - Date.now()) / 1000);
+            document.getElementById('n' + i).textContent = secs + 's';
+          }
+        }, 250);
+
+      </script>
+   </body>
+</html>

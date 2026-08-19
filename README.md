@@ -17,6 +17,7 @@ Panels alle 10 Minuten im Hintergrund.
 | LG Foyer / Lehrerzimmer | [LG_Foyer_Lehrerzimmer.html](https://realgymnasium-ramibuhl.github.io/timetables/LG_Foyer_Lehrerzimmer.html) | Heute, Morgen, lgr.ch/infoscreen |
 | LG Foyer / Lehrerzimmer, Info | [LG_Foyer_Lehrerzimmer_info.html](https://realgymnasium-ramibuhl.github.io/timetables/LG_Foyer_Lehrerzimmer_info.html) | wie oben, zusätzlich `info.png` im Wechsel |
 | LG Foyer / Lehrerzimmer, Info 5 min | [LG_Foyer_Lehrerzimmer_info_5min.html](https://realgymnasium-ramibuhl.github.io/timetables/LG_Foyer_Lehrerzimmer_info_5min.html) | wie oben, kürzerer Wechseltakt |
+| RG Foyer — Demo | [RG_Foyer_demo.html](https://realgymnasium-ramibuhl.github.io/timetables/RG_Foyer_demo.html) | wie RG Foyer, aber Tausch jede Minute mit Statusanzeige |
 | NW Foyer | [NW_Foyer.html](https://realgymnasium-ramibuhl.github.io/timetables/NW_Foyer.html) | Heute für KRR, KRL und KRM nebeneinander |
 
 ## Datenquellen
