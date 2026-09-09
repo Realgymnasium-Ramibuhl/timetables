@@ -1,0 +1,6 @@
+# Mitschnitte des 502-Monitors: enthalten Serverantworten und gehören nicht
+# auf die öffentliche GitHub-Pages-Seite.
+502-funde/
+502-funde.log
+.watch-502.pid
+__pycache__/

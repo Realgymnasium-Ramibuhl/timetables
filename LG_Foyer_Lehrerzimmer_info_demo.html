@@ -1,0 +1,384 @@
+<!--
+   Demo-Variante von LG_Foyer_Lehrerzimmer_info.html
+
+   Gleiche Seite, gleiches frame-refresh.js — nur lädt jedes Panel jede Minute
+   statt alle 10 Minuten neu, versetzt um 20 Sekunden. Der Wechsel zwischen
+   lgr.ch/infoscreen und info.png läuft wie im Betrieb alle 15 Sekunden.
+
+   Diese Seite deckt zwei Pfade ab, die die RG-Foyer-Demo nicht zeigt:
+
+     1. frame3 wird über #frame3 gestylt (2560x4305, scale 0.501, weiss).
+        Der Buffer trägt die id noch nicht und bekommt die Geometrie darum
+        von copyGeometry inline mitgegeben — sichtbar daran, dass beim Tausch
+        nichts springt.
+     2. frame3 kann im Moment des Tauschs verdeckt sein (info.png liegt
+        darüber). Dann muss der neue Frame verdeckt bleiben statt
+        aufzublenden — im HUD als "getauscht (verdeckt)" markiert.
+
+   Die Einblendungen gehören NICHT zur Produktivseite. Links unten wird der
+   Tausch nur von aussen beobachtet (MutationObserver), rechts unten werden die
+   postMessage-Nachrichten der eingebetteten Seiten mitgelesen. Beides greift
+   nicht in die Logik ein — was hier zu sehen ist, verhält sich exakt wie im
+   Betrieb.
+    -->
+<!doctype html>
+<html lang="en">
+   <head>
+      <!-- Required meta tags -->
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <!-- kein meta-refresh: die iFrames werden im Hintergrund getauscht -->
+      <style>
+        body {
+        background-color: #000;
+        }
+        #frame1, #frame2 {
+        width: 985px;
+        height: 1640px;
+        position: relative;
+
+        -webkit-transform: scale(1.3, 1.3);
+        -o-transform: scale(1.3, 1.3);
+        -ms-transform: scale(1.3, 1.3);
+        transform: scale(1.3, 1.3);
+
+        -moz-transform-origin: top left;
+        -webkit-transform-origin: top left;
+        -o-transform-origin: top left;
+        -ms-transform-origin: top left;
+        transform-origin: top left;
+        }
+        #frame3 {
+          background-color: #FFF;
+        width: 2560px;
+        height: 4305px;
+        position: relative;
+
+        -webkit-transform: scale(0.501, 0.501);
+        -o-transform: scale(0.501, 0.501);
+        -ms-transform: scale(0.501, 0.501);
+        transform: scale(0.501, 0.501);
+
+
+        -moz-transform-origin: top left;
+        -webkit-transform-origin: top left;
+        -o-transform-origin: top left;
+        -ms-transform-origin: top left;
+        transform-origin: top left;
+        }
+
+
+        #frame3, #image {
+          transition: visibility 4s, opacity 4s;
+          opacity: 0;
+        }
+
+        /* hide scrollbar but allow scrolling */
+        body {
+        -ms-overflow-style: none; /* for Internet Explorer, Edge */
+        scrollbar-width: none; /* for Firefox */
+        overflow: hidden;
+        }
+        body::-webkit-scrollbar {
+        display: none; /* for Chrome, Safari, and Opera */
+        }
+
+        /* ---- nur Demo ---- */
+        .panel-outline {
+          position: absolute;
+          top: 0;
+          width: 1280px;
+          height: 2158px;
+          border: 6px solid #35c46a;
+          box-sizing: border-box;
+          opacity: 0;
+          transition: opacity 900ms ease-out;
+          pointer-events: none;
+          z-index: 10;
+        }
+        .panel-outline.hit { opacity: 1; transition: opacity 60ms; }
+
+        #hud {
+          position: fixed;
+          left: 24px;
+          bottom: 24px;
+          z-index: 20;
+          background: rgba(0, 0, 0, 0.82);
+          border: 1px solid #333;
+          border-radius: 10px;
+          padding: 18px 22px;
+          font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+          font-size: 17px;
+          line-height: 1.55;
+          color: #ddd;
+          min-width: 470px;
+        }
+        #hud h1 {
+          margin: 0 0 10px;
+          font-size: 18px;
+          letter-spacing: 0.04em;
+          color: #35c46a;
+        }
+        #hud table { border-collapse: collapse; width: 100%; }
+        #hud td { padding: 3px 10px 3px 0; white-space: nowrap; }
+        #hud .num { color: #fff; }
+        #hud .state-idle { color: #777; }
+        #hud .state-load { color: #e0a33a; }
+        #hud .state-swap { color: #35c46a; }
+        #hud .slot3 { border-top: 1px solid #262626; }
+        #hud .slot3 td { padding-top: 8px; }
+        #hud #slot3now { color: #6ab7ff; }
+        #hud footer { margin-top: 10px; color: #777; font-size: 14px; }
+
+        #msglog {
+          position: fixed;
+          right: 24px;
+          bottom: 24px;
+          z-index: 20;
+          background: rgba(0, 0, 0, 0.82);
+          border: 1px solid #333;
+          border-radius: 10px;
+          padding: 18px 22px;
+          font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+          font-size: 15px;
+          line-height: 1.5;
+          color: #ddd;
+          width: 640px;
+          max-height: 520px;
+          overflow: hidden;
+        }
+        #msglog h1 {
+          margin: 0 0 10px;
+          font-size: 18px;
+          letter-spacing: 0.04em;
+          color: #35c46a;
+        }
+        #msglog h1 .count { color: #fff; float: right; font-size: 15px; }
+        #msglog .empty { color: #777; }
+        #msglog ul { margin: 0; padding: 0; list-style: none; }
+        #msglog li {
+          padding: 6px 0;
+          border-top: 1px solid #262626;
+          word-break: break-all;
+        }
+        #msglog .meta { color: #888; font-size: 13px; }
+        #msglog .meta .origin { color: #e0a33a; }
+        #msglog .meta .panel  { color: #35c46a; }
+        #msglog .body { color: #fff; white-space: pre-wrap; }
+        #msglog footer { margin-top: 10px; color: #777; font-size: 13px; }
+      </style>
+      <title>LG Foyer, Info — Demo</title>
+   </head>
+   <body>
+      <div>
+         <div id="screenContent" style="visibility:hidden;">
+            <iframe id="frame1" style="position: absolute; top:0; left: 0"      src="https://intranet.tam.ch/krl/public/timetable/daily-class-schedule?dayShort=today" frameborder="0" scrolling="no"></iframe>
+            <iframe id="frame2" style="position: absolute; top:0; left: 1280px;"  src="https://intranet.tam.ch/krl/public/timetable/daily-class-schedule?dayShort=tomorrow" frameborder="0" scrolling="no"></iframe>
+            <iframe id="frame3" style="position: absolute; top:0; left: 2560px; visibility:hidden" src="https://www.lgr.ch/infoscreen" frameborder="0" scrolling="no"></iframe>
+            <img id="image" style="position: absolute; top:0; left: 2560px; visibility:hidden; width:1282px; height:2156px;" src="info.png">
+
+            <div class="panel-outline" style="left: 0"></div>
+            <div class="panel-outline" style="left: 1280px"></div>
+            <div class="panel-outline" style="left: 2560px"></div>
+         </div>
+      </div>
+
+      <div id="hud">
+        <h1>DEMO — Panels laden jede Minute neu</h1>
+        <table>
+          <tr><td>Panel 1 — heute</td>      <td id="s1" class="state-idle">wartet</td> <td>Tausche: <span id="c1" class="num">0</span></td> <td>nächster in <span id="n1" class="num">–</span></td></tr>
+          <tr><td>Panel 2 — morgen</td>     <td id="s2" class="state-idle">wartet</td> <td>Tausche: <span id="c2" class="num">0</span></td> <td>nächster in <span id="n2" class="num">–</span></td></tr>
+          <tr><td>Panel 3 — Infoscreen</td> <td id="s3" class="state-idle">wartet</td> <td>Tausche: <span id="c3" class="num">0</span></td> <td>nächster in <span id="n3" class="num">–</span></td></tr>
+          <tr class="slot3"><td>Slot 3 zeigt gerade</td><td colspan="3"><span id="slot3now">–</span></td></tr>
+        </table>
+        <footer>Im Betrieb: alle 10 Minuten statt jede Minute. Sonst identisch.</footer>
+      </div>
+
+      <div id="msglog">
+        <h1>iFrame-Nachrichten <span class="count" id="msgcount">0</span></h1>
+        <div class="empty" id="msgempty">noch keine empfangen</div>
+        <ul id="msglist"></ul>
+        <footer>window.postMessage aus den eingebetteten Seiten — nur mitgelesen.</footer>
+      </div>
+
+      <script src="frame-refresh.js"></script>
+      <script>
+
+        var INTERVAL = 60000;   // Demo: jede Minute
+        var STAGGER  = 20000;   // 20s Versatz -> rollende Welle über die Panels
+        var T0 = Date.now();
+
+        //prettier loading of content
+        window.addEventListener("load", function () {
+          document.getElementById('screenContent').style.visibility = 'visible';
+          switchContent(); // call the switch function immediately after page load
+          setInterval(switchContent, 15000);
+        });
+
+        function switchContent() {
+            var frame3 = document.getElementById('frame3');
+            var image = document.getElementById('image');
+            if (frame3.style.opacity == "0") {
+              frame3.style.visibility = "visible";
+              frame3.style.opacity = "1";
+              image.style.opacity = "0";
+              image.style.visibility = "hidden";
+            } else {
+              frame3.style.visibility = "hidden";
+              frame3.style.opacity = "0";
+              image.style.visibility = "visible";
+              image.style.opacity = "1";
+            }
+        }
+
+        // Panels im Hintergrund neu laden, ohne sichtbaren Reload
+        FrameRefresh.start({
+          frames: [
+              { id: 'frame1', height: '1659px' },
+              { id: 'frame2', height: '1659px' },
+              { id: 'frame3' }
+          ],
+          interval: INTERVAL,
+          stagger: STAGGER,
+          nightlyReloadHour: null,  // Demo läuft ohne nächtlichen Reload
+          blackout: []              // und ohne Sperrminuten, sonst stünde sie
+                                    // zweimal je Stunde fünf Minuten still
+        });
+
+        /* ---------------- ab hier nur Anzeige, keine Logik ---------------- */
+
+        var LEFTS = { 0: 1, 1280: 2, 2560: 3 };
+        var counts = { 1: 0, 2: 0, 3: 0 };
+
+        // left:0 wird vom Browser zu "0px" normalisiert -> numerisch vergleichen
+        function panelOf(el) {
+          return LEFTS[parseInt(el.style.left || '0', 10)];
+        }
+
+        function setState(i, text, cls) {
+          var el = document.getElementById('s' + i);
+          el.textContent = text;
+          el.className = cls;
+        }
+
+        function flash(i) {
+          var box = document.querySelectorAll('.panel-outline')[i - 1];
+          box.classList.add('hit');
+          setTimeout(function () { box.classList.remove('hit'); }, 120);
+        }
+
+        new MutationObserver(function (muts) {
+          muts.forEach(function (m) {
+            m.addedNodes.forEach(function (n) {
+              if (n.tagName !== 'IFRAME') return;
+              var i = panelOf(n);
+              if (i) setState(i, 'lädt im Hintergrund', 'state-load');
+            });
+            m.removedNodes.forEach(function (n) {
+              if (n.tagName !== 'IFRAME') return;
+              var i = panelOf(n);
+              if (!i) return;
+              counts[i]++;
+              document.getElementById('c' + i).textContent = counts[i];
+              // Der entfernte Frame trägt den Zustand, den der neue übernommen
+              // hat: verdeckt getauscht heisst opacity 0.
+              var hidden = n.style.opacity === '0';
+              setState(i, hidden ? 'getauscht (verdeckt)' : 'getauscht', 'state-swap');
+              flash(i);
+              setTimeout(function () { setState(i, 'wartet', 'state-idle'); }, 2500);
+            });
+          });
+        }).observe(document.getElementById('screenContent'), { childList: true });
+
+        // Countdown: die Auslösezeitpunkte stehen fest (T0 + i*STAGGER + k*INTERVAL)
+        setInterval(function () {
+          for (var i = 1; i <= 3; i++) {
+            var base = T0 + (i - 1) * STAGGER;
+            var k = Math.max(1, Math.ceil((Date.now() - base) / INTERVAL));
+            var secs = Math.round((base + k * INTERVAL - Date.now()) / 1000);
+            document.getElementById('n' + i).textContent = secs + 's';
+          }
+
+          // Was liegt gerade in Slot 3? frame3 wird beim Tausch ersetzt,
+          // darum jedes Mal frisch nachschlagen statt zu cachen.
+          var f3 = document.getElementById('frame3');
+          document.getElementById('slot3now').textContent =
+            (f3 && f3.style.opacity !== '0') ? 'lgr.ch/infoscreen' : 'info.png';
+        }, 250);
+
+        /* ---- postMessage der eingebetteten Seiten mitlesen ---------------
+           Rein beobachtend: nichts wird beantwortet, nichts ausgewertet. Der
+           Inhalt kommt von fremden Seiten und wird darum ausschliesslich als
+           Text gesetzt (textContent), nie als HTML. ------------------------ */
+
+        var MSG_MAX = 8;          // so viele Einträge bleiben stehen
+        var msgTotal = 0;
+
+        function sourceLabel(src) {
+          var frames = document.querySelectorAll('#screenContent iframe');
+          for (var i = 0; i < frames.length; i++) {
+            if (frames[i].contentWindow !== src) continue;
+            var p = panelOf(frames[i]);
+            return 'Panel ' + (p || '?') + (frames[i].id ? '' : ' (Buffer)');
+          }
+          return 'unbekannt';
+        }
+
+        function preview(data) {
+          var text;
+          if (typeof data === 'string') {
+            text = data;
+          } else {
+            try {
+              text = JSON.stringify(data);
+            } catch (e) {
+              text = String(data);          // zyklisch o.ä.
+            }
+          }
+          if (text === undefined) text = String(data);
+          return text.length > 300 ? text.slice(0, 300) + ' …' : text;
+        }
+
+        function stamp(d) {
+          function p(n) { return (n < 10 ? '0' : '') + n; }
+          return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+        }
+
+        window.addEventListener('message', function (ev) {
+          msgTotal++;
+          document.getElementById('msgcount').textContent = msgTotal;
+          document.getElementById('msgempty').style.display = 'none';
+
+          var meta = document.createElement('div');
+          meta.className = 'meta';
+
+          var t = document.createElement('span');
+          t.textContent = stamp(new Date()) + '  ';
+          var o = document.createElement('span');
+          o.className = 'origin';
+          o.textContent = ev.origin || '(leer)';
+          var sp = document.createElement('span');
+          sp.className = 'panel';
+          sp.textContent = '  ' + sourceLabel(ev.source);
+          meta.appendChild(t);
+          meta.appendChild(o);
+          meta.appendChild(sp);
+
+          var body = document.createElement('div');
+          body.className = 'body';
+          body.textContent = preview(ev.data);
+
+          var li = document.createElement('li');
+          li.appendChild(meta);
+          li.appendChild(body);
+
+          var list = document.getElementById('msglist');
+          list.insertBefore(li, list.firstChild);     // neueste oben
+          while (list.children.length > MSG_MAX) {
+            list.removeChild(list.lastChild);
+          }
+        });
+
+      </script>
+   </body>
+</html>

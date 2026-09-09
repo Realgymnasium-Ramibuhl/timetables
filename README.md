@@ -18,6 +18,7 @@ Panels alle 10 Minuten im Hintergrund.
 | LG Foyer / Lehrerzimmer, Info | [LG_Foyer_Lehrerzimmer_info.html](https://realgymnasium-ramibuhl.github.io/timetables/LG_Foyer_Lehrerzimmer_info.html) | wie oben, zusätzlich `info.png` im Wechsel |
 | LG Foyer / Lehrerzimmer, Info 5 min | [LG_Foyer_Lehrerzimmer_info_5min.html](https://realgymnasium-ramibuhl.github.io/timetables/LG_Foyer_Lehrerzimmer_info_5min.html) | wie oben, kürzerer Wechseltakt |
 | RG Foyer — Demo | [RG_Foyer_demo.html](https://realgymnasium-ramibuhl.github.io/timetables/RG_Foyer_demo.html) | wie RG Foyer, aber Tausch jede Minute mit Statusanzeige |
+| LG Foyer, Info — Demo | [LG_Foyer_Lehrerzimmer_info_demo.html](https://realgymnasium-ramibuhl.github.io/timetables/LG_Foyer_Lehrerzimmer_info_demo.html) | wie LG Info, aber Tausch jede Minute mit Statusanzeige |
 | NW Foyer | [NW_Foyer.html](https://realgymnasium-ramibuhl.github.io/timetables/NW_Foyer.html) | Heute für KRR, KRL und KRM nebeneinander |
 
 ## Datenquellen
@@ -59,6 +60,25 @@ oben in `frame-refresh.js`.
 
 Lädt ein Panel nicht (Intranet nicht erreichbar), bleibt die bisherige Anzeige
 stehen, statt schwarz zu werden.
+
+## Demo-Seiten
+
+Die beiden `_demo`-Seiten sind zum Zuschauen da, nicht für den Betrieb. Sie
+laden jedes Panel jede Minute statt alle 10 Minuten neu und blenden zwei
+Beobachtungsfenster ein, die selbst nichts an der Logik ändern:
+
+- unten links der Zustand jedes Panels (lädt / getauscht), die Zahl der Tausche
+  und die Zeit bis zum nächsten,
+- unten rechts die `postMessage`-Nachrichten der eingebetteten Seiten mit
+  Uhrzeit, Origin und Panel. Der Inhalt wird nur als Text gesetzt, nie als
+  HTML, und nichts wird beantwortet.
+
+`RG_Foyer_demo.html` zeigt den einfachen Fall: drei gleich gestylte Panels.
+`LG_Foyer_Lehrerzimmer_info_demo.html` deckt zusätzlich die beiden Sonderfälle
+ab, die nur die LG- und die Lehrerzimmer-25-Seite haben — `frame3` wird über
+`#frame3` gestylt statt über den `iframe`-Selektor, und `frame3` kann im Moment
+des Tauschs von `info.png` verdeckt sein. Beide Seiten laufen ohne den
+nächtlichen Reload.
 
 ## Betrieb
 
