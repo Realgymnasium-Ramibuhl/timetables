@@ -6,9 +6,11 @@
    20 Sekunden ein Tausch durch die drei Panels und man sieht, dass dabei kein
    schwarzes Aufblitzen auftritt.
 
-   Die Einblendung unten links gehört NICHT zur Produktivseite. Sie beobachtet
-   den Tausch nur von aussen (MutationObserver) und greift nicht in die Logik
-   ein — was hier zu sehen ist, verhält sich exakt wie im Betrieb.
+   Die Einblendungen gehören NICHT zur Produktivseite. Links unten wird der
+   Tausch nur von aussen beobachtet (MutationObserver), rechts unten werden die
+   postMessage-Nachrichten der eingebetteten Seiten mitgelesen. Beides greift
+   nicht in die Logik ein — was hier zu sehen ist, verhält sich exakt wie im
+   Betrieb.
     -->
 <!doctype html>
 <html lang="en">
@@ -89,6 +91,43 @@
          #hud .state-load { color: #e0a33a; }
          #hud .state-swap { color: #35c46a; }
          #hud footer { margin-top: 10px; color: #777; font-size: 14px; }
+
+         #msglog {
+           position: fixed;
+           right: 24px;
+           bottom: 24px;
+           z-index: 20;
+           background: rgba(0, 0, 0, 0.82);
+           border: 1px solid #333;
+           border-radius: 10px;
+           padding: 18px 22px;
+           font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+           font-size: 15px;
+           line-height: 1.5;
+           color: #ddd;
+           width: 640px;
+           max-height: 520px;
+           overflow: hidden;
+         }
+         #msglog h1 {
+           margin: 0 0 10px;
+           font-size: 18px;
+           letter-spacing: 0.04em;
+           color: #35c46a;
+         }
+         #msglog h1 .count { color: #fff; float: right; font-size: 15px; }
+         #msglog .empty { color: #777; }
+         #msglog ul { margin: 0; padding: 0; list-style: none; }
+         #msglog li {
+           padding: 6px 0;
+           border-top: 1px solid #262626;
+           word-break: break-all;
+         }
+         #msglog .meta { color: #888; font-size: 13px; }
+         #msglog .meta .origin { color: #e0a33a; }
+         #msglog .meta .panel  { color: #35c46a; }
+         #msglog .body { color: #fff; white-space: pre-wrap; }
+         #msglog footer { margin-top: 10px; color: #777; font-size: 13px; }
       </style>
       <title>Foyer — Demo</title>
    </head>
@@ -115,6 +154,13 @@
         <footer>Im Betrieb: alle 10 Minuten statt jede Minute. Sonst identisch.</footer>
       </div>
 
+      <div id="msglog">
+        <h1>iFrame-Nachrichten <span class="count" id="msgcount">0</span></h1>
+        <div class="empty" id="msgempty">noch keine empfangen</div>
+        <ul id="msglist"></ul>
+        <footer>window.postMessage aus den eingebetteten Seiten — nur mitgelesen.</footer>
+      </div>
+
       <script src="frame-refresh.js"></script>
       <script>
 
@@ -136,7 +182,9 @@
           ],
           interval: INTERVAL,
           stagger: STAGGER,
-          nightlyReloadHour: null   // Demo läuft ohne nächtlichen Reload
+          nightlyReloadHour: null,  // Demo läuft ohne nächtlichen Reload
+          blackout: []              // und ohne Sperrminuten, sonst stünde sie
+                                    // zweimal je Stunde fünf Minuten still
         });
 
         /* ---------------- ab hier nur Anzeige, keine Logik ---------------- */
@@ -190,6 +238,79 @@
             document.getElementById('n' + i).textContent = secs + 's';
           }
         }, 250);
+
+        /* ---- postMessage der eingebetteten Seiten mitlesen ---------------
+           Rein beobachtend: nichts wird beantwortet, nichts ausgewertet. Der
+           Inhalt kommt von fremden Seiten und wird darum ausschliesslich als
+           Text gesetzt (textContent), nie als HTML. ------------------------ */
+
+        var MSG_MAX = 8;          // so viele Einträge bleiben stehen
+        var msgTotal = 0;
+
+        function sourceLabel(src) {
+          var frames = document.querySelectorAll('#screenContent iframe');
+          for (var i = 0; i < frames.length; i++) {
+            if (frames[i].contentWindow !== src) continue;
+            var p = panelOf(frames[i]);
+            return 'Panel ' + (p || '?') + (frames[i].id ? '' : ' (Buffer)');
+          }
+          return 'unbekannt';
+        }
+
+        function preview(data) {
+          var text;
+          if (typeof data === 'string') {
+            text = data;
+          } else {
+            try {
+              text = JSON.stringify(data);
+            } catch (e) {
+              text = String(data);          // zyklisch o.ä.
+            }
+          }
+          if (text === undefined) text = String(data);
+          return text.length > 300 ? text.slice(0, 300) + ' …' : text;
+        }
+
+        function stamp(d) {
+          function p(n) { return (n < 10 ? '0' : '') + n; }
+          return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+        }
+
+        window.addEventListener('message', function (ev) {
+          msgTotal++;
+          document.getElementById('msgcount').textContent = msgTotal;
+          document.getElementById('msgempty').style.display = 'none';
+
+          var meta = document.createElement('div');
+          meta.className = 'meta';
+
+          var t = document.createElement('span');
+          t.textContent = stamp(new Date()) + '  ';
+          var o = document.createElement('span');
+          o.className = 'origin';
+          o.textContent = ev.origin || '(leer)';
+          var sp = document.createElement('span');
+          sp.className = 'panel';
+          sp.textContent = '  ' + sourceLabel(ev.source);
+          meta.appendChild(t);
+          meta.appendChild(o);
+          meta.appendChild(sp);
+
+          var body = document.createElement('div');
+          body.className = 'body';
+          body.textContent = preview(ev.data);
+
+          var li = document.createElement('li');
+          li.appendChild(meta);
+          li.appendChild(body);
+
+          var list = document.getElementById('msglist');
+          list.insertBefore(li, list.firstChild);     // neueste oben
+          while (list.children.length > MSG_MAX) {
+            list.removeChild(list.lastChild);
+          }
+        });
 
       </script>
    </body>

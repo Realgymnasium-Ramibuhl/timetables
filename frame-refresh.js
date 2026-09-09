@@ -19,6 +19,9 @@
  *     frames: [ { id: 'frame1', height: '1660px' }, { id: 'frame3' } ],
  *     interval: 600000
  *   });
+ *
+ * In den Minuten :05-:09 und :35-:39 wird nicht getauscht, siehe blackout
+ * unten. Mit blackout: [] lässt sich das abschalten.
  */
 (function (global) {
   'use strict';
@@ -30,8 +33,37 @@
     paintDelay: 800,         // Zeit zum Zeichnen, bevor eingeblendet wird
     fadeMs: 400,             // Dauer der Überblendung
     cacheBuster: true,       // _ts-Parameter anhängen
-    nightlyReloadHour: 3     // Sicherheitsnetz; null schaltet es ab
+    nightlyReloadHour: 3,    // Sicherheitsnetz; null schaltet es ab
+
+    // Sperrminuten: In diesen Minuten wird nicht getauscht.
+    //
+    // Das Intranet liefert regelmässig kurz nach der vollen und der halben
+    // Stunde eine 502-Fehlerseite — gemessen zwischen +5:58 und +9:07, meist
+    // um +6:30. Die Störung dauert nur Sekunden, die Anzeige würde die
+    // Fehlerseite aber bis zur nächsten Aktualisierung stehen lassen, also
+    // bis zu zehn Minuten. Wer in diesen Minuten gar nicht erst tauscht,
+    // kann die Fehlerseite auch nicht erwischen.
+    //
+    // Angegeben als Minutenbereiche [von, bis], jeweils einschliesslich.
+    // Leeres Array schaltet die Sperre ab.
+    blackout: [[5, 9], [35, 39]]
   };
+
+  // 0, wenn gerade getauscht werden darf; sonst die Millisekunden bis zum
+  // Ende der Sperre.
+  function blackoutRest(cfg, now) {
+    var bereiche = cfg.blackout || [];
+    now = now || new Date();
+    var m = now.getMinutes();
+    for (var i = 0; i < bereiche.length; i++) {
+      if (m >= bereiche[i][0] && m <= bereiche[i][1]) {
+        var ende = new Date(now.getTime());
+        ende.setMinutes(bereiche[i][1] + 1, 0, 0);   // rollt korrekt über die Stunde
+        return ende - now;
+      }
+    }
+    return 0;
+  }
 
   // Die Überblendung gilt nur für den Buffer, nicht dauerhaft für jeden
   // iFrame: sonst würde sie auch Umschaltlogik der Info-Seiten verzögern.
@@ -93,11 +125,27 @@
     var current = document.getElementById(spec.id);
     if (!current || current.dataset.swapping === '1') return;
 
+    // In den Sperrminuten nicht tauschen, sondern kurz danach nachholen. Der
+    // Zufallsanteil verteilt die nachgeholten Tausche, damit nicht alle
+    // Panels im selben Moment laden.
+    var rest = blackoutRest(cfg);
+    if (rest > 0) {
+      if (current.dataset.deferred === '1') return;   // schon eingeplant
+      current.dataset.deferred = '1';
+      setTimeout(function () {
+        var el = document.getElementById(spec.id);
+        if (el) el.dataset.deferred = '0';
+        refresh(spec, cfg);
+      }, rest + Math.floor(Math.random() * 20000));
+      return;
+    }
+
     // Erst klonen, dann die Flagge setzen: sonst erbt der Buffer
     // data-swapping="1" und der nächste Durchlauf bricht sofort ab.
     var next = current.cloneNode(false);
     next.removeAttribute('id');
     next.removeAttribute('data-swapping');
+    next.removeAttribute('data-deferred');   // sonst erbt der Buffer die Sperrmarke
     next.classList.add('fr-fading');
     next.style.opacity = '0';
     next.style.visibility = 'visible';   // muss gezeichnet werden
@@ -177,5 +225,6 @@
     scheduleNightlyReload(cfg.nightlyReloadHour);
   }
 
-  global.FrameRefresh = { start: start };
+  // blackoutRest wird für Tests mit herausgegeben.
+  global.FrameRefresh = { start: start, blackoutRest: blackoutRest };
 })(window);
