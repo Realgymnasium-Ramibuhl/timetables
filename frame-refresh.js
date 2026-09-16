@@ -20,7 +20,7 @@
  *     interval: 600000
  *   });
  *
- * In den Minuten :05-:09 und :35-:39 wird nicht getauscht, siehe blackout
+ * In den Minuten :04-:11 und :34-:41 wird nicht getauscht, siehe blackout
  * unten. Mit blackout: [] lässt sich das abschalten.
  */
 (function (global) {
@@ -38,15 +38,22 @@
     // Sperrminuten: In diesen Minuten wird nicht getauscht.
     //
     // Das Intranet liefert regelmässig kurz nach der vollen und der halben
-    // Stunde eine 502-Fehlerseite — gemessen zwischen +5:58 und +9:07, meist
-    // um +6:30. Die Störung dauert nur Sekunden, die Anzeige würde die
-    // Fehlerseite aber bis zur nächsten Aktualisierung stehen lassen, also
-    // bis zu zehn Minuten. Wer in diesen Minuten gar nicht erst tauscht,
-    // kann die Fehlerseite auch nicht erwischen.
+    // Stunde eine 502-Fehlerseite. Die Störung dauert nur Sekunden, die
+    // Anzeige würde die Fehlerseite aber bis zur nächsten Aktualisierung
+    // stehen lassen, also bis zu zehn Minuten. Wer in diesen Minuten gar
+    // nicht erst tauscht, kann die Fehlerseite auch nicht erwischen.
+    //
+    // Aus 65 Fällen über neun Tage: frühester +5:35, spätester +10:39, dazu
+    // ein einzelner Ausreisser bei +24:02. Das Fenster +4:00 bis +11:59 fängt
+    // 64 davon ab.
+    //
+    // Die Ränder sind bewusst grosszügig, weil der Zeitpunkt wandert: Der
+    // Median lag am 8.9. bei +6:30 und liegt seit dem 12.9. bei rund +5:50.
+    // Ein knapp bemessenes Fenster wäre binnen Wochen unterlaufen.
     //
     // Angegeben als Minutenbereiche [von, bis], jeweils einschliesslich.
     // Leeres Array schaltet die Sperre ab.
-    blackout: [[5, 9], [35, 39]]
+    blackout: [[4, 11], [34, 41]]
   };
 
   // 0, wenn gerade getauscht werden darf; sonst die Millisekunden bis zum
