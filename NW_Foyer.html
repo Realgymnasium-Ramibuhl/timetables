@@ -68,11 +68,19 @@
         });
 
         // Panels im Hintergrund neu laden, ohne sichtbaren Reload
+        //
+        // frame3 (KRM) lädt sich selbst alle 120 s neu: timetable.public.js
+        // des Intranets setzt für KRM einen location.reload()-Timer. Das ist
+        // auf dem Display als Aufblitzen zu sehen. Wird das Panel vorher
+        // getauscht, verschwindet der Timer mit dem alten iFrame. Der Takt
+        // muss inkl. Versatz (stagger) und Ladezeit unter 120 s bleiben.
+        // In den Sperrminuten wird nicht getauscht, dort lädt KRM sich
+        // weiterhin selbst neu.
         FrameRefresh.start({
           frames: [
               { id: 'frame1', height: '1660px' },
               { id: 'frame2', height: '1660px' },
-              { id: 'frame3', height: '1660px' }
+              { id: 'frame3', height: '1660px', interval: 100000 }
           ],
           interval: 600000
         });
