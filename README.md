@@ -61,6 +61,20 @@ oben in `frame-refresh.js`.
 Lädt ein Panel nicht (Intranet nicht erreichbar), bleibt die bisherige Anzeige
 stehen, statt schwarz zu werden.
 
+### Sonderfall KRM
+
+Die öffentliche Stundenplanseite des Intranets lädt sich für KRM selbst alle
+120 s neu (`handleSpecialKrmSchoolInitialization` in `timetable.public.js`,
+ein `document.location.reload()`-Timer). Weil der iFrame fremd ist, lässt sich
+das von aussen nicht abschalten; das Panel blitzt dabei auf, wie früher die
+ganze Seite. KRR und KRL haben diesen Timer nicht.
+
+Abhilfe: Das KRM-Panel in `NW_Foyer.html` wird mit eigenem `interval: 100000`
+alle 100 s getauscht. Der alte iFrame verschwindet samt Timer, bevor dieser
+auslöst. Der Takt muss inklusive Versatz und Ladezeit unter 120 s bleiben. In
+den Sperrminuten wird nicht getauscht; dort lädt KRM sich weiterhin selbst neu
+und kann dabei auch die 502-Fehlerseite erwischen.
+
 ## Demo-Seiten
 
 Die beiden `_demo`-Seiten sind zum Zuschauen da, nicht für den Betrieb. Sie

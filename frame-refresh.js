@@ -20,6 +20,10 @@
  *     interval: 600000
  *   });
  *
+ * Ein Panel kann mit eigenem interval vom globalen Takt abweichen, z.B.
+ * { id: 'frame3', interval: 100000 }. Gebraucht wird das für KRM, siehe
+ * NW_Foyer.html.
+ *
  * In den Minuten :04-:11 und :34-:41 wird nicht getauscht, siehe blackout
  * unten. Mit blackout: [] lässt sich das abschalten.
  */
@@ -225,7 +229,7 @@
       frame.addEventListener('load', function () { applyHeight(frame, spec); });
 
       setTimeout(function () {
-        setInterval(function () { refresh(spec, cfg); }, cfg.interval);
+        setInterval(function () { refresh(spec, cfg); }, spec.interval || cfg.interval);
       }, i * cfg.stagger);
     });
 
